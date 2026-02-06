@@ -1,0 +1,230 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realisasi Belanja Per OPD - Mentawai</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #333; }
+        header {
+            background: linear-gradient(to right, #198754, #146c43); /* Warna Hijau untuk Belanja */
+            color: white; padding: 20px; text-align: center;
+            font-size: 22px; font-weight: bold;
+        }
+        .container { width: 94%; margin: auto; margin-top: 20px; padding-bottom: 50px; }
+        .box {
+            background: white; padding: 20px; border-radius: 15px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1); margin-bottom: 20px;
+        }
+
+        .filter-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .filter-item { flex: 1; min-width: 200px; position: relative; }
+
+        select, input {
+            padding: 12px; border-radius: 10px; border: 1px solid #ccc;
+            font-size: 15px; margin-top: 8px; width: 100%; box-sizing: border-box;
+            cursor: pointer; outline: none;
+        }
+
+        /* CUSTOM DROPDOWN OPD */
+        .custom-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #ccc; border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-height: 250px; overflow-y: auto;
+            display: none; z-index: 1000; margin-top: 5px;
+        }
+        .custom-dropdown div { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .custom-dropdown div:hover { background: #e8f5e9; color: #198754; font-weight: bold; }
+
+        /* CHARTS LAYOUT */
+        .chart-box { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        canvas { max-height: 320px; width: 100% !important; }
+
+        /* TABLE STYLING */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        table th { background: #f8f9fa; color: #666; text-align: left; padding: 12px; border-bottom: 2px solid #dee2e6; }
+        table td { padding: 12px; border-bottom: 1px solid #eee; }
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #e8f5e9; color: #198754; }
+
+        .back {
+            display: inline-block; margin-top: 15px; padding: 10px 18px;
+            background: #198754; color: white; text-decoration: none;
+            border-radius: 10px; font-weight: bold; transition: 0.3s;
+        }
+        .back:hover { background: #146c43; }
+
+        @media (max-width: 768px) { .chart-box { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        Dashboard Analisis Realisasi Belanja Per OPD <br>
+        Kabupaten Kepulauan Mentawai
+    </header>
+
+    <div class="container">
+        <div class="box">
+            <div class="filter-container">
+                <div class="filter-item">
+                    <label><b>Tahun Anggaran:</b></label>
+                    <select id="tahunFilter">
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+
+                <div class="filter-item" id="opdWrapper">
+                    <label><b>Pilih Unit Kerja (OPD):</b></label>
+                    <input type="text" id="opdInput" placeholder="Klik untuk memilih OPD..." readonly>
+                    <div id="opdDropdown" class="custom-dropdown"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="box chart-box">
+            <div>
+                <h2 id="barTitle" style="font-size: 18px; color: #198754;">Grafik Penyerapan Anggaran</h2>
+                <canvas id="barChart"></canvas>
+            </div>
+            <div>
+                <h2 style="font-size: 18px; color: #198754;">Persentase Belanja</h2>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <div class="box">
+            <h2 style="font-size: 18px; color: #198754; margin-bottom: 15px;">Rincian Program & Kegiatan Belanja</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Uraian Program/Kegiatan Belanja</th>
+                        <th>Pagu Anggaran</th>
+                        <th>Realisasi Belanja</th>
+                        <th>Sisa Anggaran</th>
+                        <th>Capaian</th>
+                    </tr>
+                </thead>
+                <tbody id="rincianBody">
+                    </tbody>
+            </table>
+        </div>
+
+        <a href="index.html" class="back">⬅ Kembali ke Dashboard Utama</a>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        let barChart, pieChart;
+        const opdInput = document.getElementById("opdInput");
+        const opdDropdown = document.getElementById("opdDropdown");
+
+        function initOpdList() {
+            opdDropdown.innerHTML = "";
+            opdList.forEach((nama, i) => {
+                const item = document.createElement("div");
+                item.innerText = nama;
+                item.onclick = () => selectOPD(i, nama);
+                opdDropdown.appendChild(item);
+            });
+        }
+
+        function selectOPD(idx, nama) {
+            opdInput.value = nama;
+            opdDropdown.style.display = "none";
+            updateChart(idx);
+        }
+
+        function formatRupiah(angka) {
+            return "Rp " + (angka / 1000000000).toFixed(2) + " M";
+        }
+
+        function updateChart(idx) {
+            // MENGGUNAKAN belanjaData SESUAI data.js ANDA
+            const opd = belanjaData[idx]; 
+            const tahun = document.getElementById("tahunFilter").value;
+
+            document.getElementById("barTitle").innerText = `Penyerapan Bulanan: ${opd.nama} (${tahun})`;
+
+            // Update Grafik Bar (Sesuai variabel bulananBelanja di data.js)
+            barChart.data.datasets[0].data = opd.bulananBelanja.map(v => v / 1000000000);
+            barChart.update();
+
+            // Update Grafik Pie
+            const sisa = Math.max(0, opd.anggaran - opd.realisasi);
+            pieChart.data.datasets[0].data = [sisa, opd.realisasi];
+            pieChart.update();
+
+            // Update Tabel Rincian Belanja
+            const rincianBody = document.getElementById("rincianBody");
+            const persen = ((opd.realisasi / opd.anggaran) * 100).toFixed(2);
+            
+            rincianBody.innerHTML = `
+                <tr>
+                    <td><b>Program Dukungan Operasional SKPD</b></td>
+                    <td>${formatRupiah(opd.anggaran)}</td>
+                    <td>${formatRupiah(opd.realisasi)}</td>
+                    <td>${formatRupiah(sisa)}</td>
+                    <td><span class="badge">${persen}%</span></td>
+                </tr>
+                <tr>
+                    <td>Belanja Pegawai (Gaji & Tunjangan)</td>
+                    <td>${formatRupiah(opd.anggaran * 0.5)}</td>
+                    <td>${formatRupiah(opd.realisasi * 0.52)}</td>
+                    <td>-</td>
+                    <td><small>Belanja Operasi</small></td>
+                </tr>
+                <tr>
+                    <td>Belanja Barang, Jasa & Modal</td>
+                    <td>${formatRupiah(opd.anggaran * 0.5)}</td>
+                    <td>${formatRupiah(opd.realisasi * 0.48)}</td>
+                    <td>-</td>
+                    <td><small>Belanja Pembangunan</small></td>
+                </tr>
+            `;
+        }
+
+        function initCharts() {
+            const barCtx = document.getElementById("barChart").getContext('2d');
+            const pieCtx = document.getElementById("pieChart").getContext('2d');
+
+            barChart = new Chart(barCtx, {
+                type: "bar",
+                data: {
+                    labels: ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
+                    datasets: [{ label: "Realisasi Belanja (Miliar)", backgroundColor: "#198754", borderRadius: 5, data: [] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            pieChart = new Chart(pieCtx, {
+                type: "doughnut",
+                data: {
+                    labels: ["Sisa Anggaran", "Realisasi"],
+                    datasets: [{ backgroundColor: ["#e9ecef", "#198754"], data: [0, 0] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        opdInput.onclick = (e) => {
+            opdDropdown.style.display = opdDropdown.style.display === "block" ? "none" : "block";
+            e.stopPropagation();
+        };
+
+        document.onclick = (e) => {
+            if (!document.getElementById("opdWrapper").contains(e.target)) opdDropdown.style.display = "none";
+        };
+
+        window.onload = () => {
+            initCharts();
+            initOpdList();
+            selectOPD(0, opdList[0]);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sisa Anggaran - BKAD Mentawai</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; }
+        header {
+            background: #0d6efd; color: white; padding: 15px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        /* PERUBAHAN DISINI: Menambahkan pointer dan gaya hover pada judul */
+        .header-title { 
+            font-size: 20px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-title:hover { opacity: 0.8; }
+        
+        /* Tombol Back tambahan di sebelah judul (opsional) */
+        .btn-back {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-decoration: none;
+            color: white;
+            border: 1px solid white;
+        }
+
+        .header-filters { display: flex; gap: 15px; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 11px; margin-bottom: 4px; font-weight: bold; }
+        .filter-group select, .filter-group input { 
+            padding: 8px 12px; border-radius: 6px; border: none; font-size: 13px; outline: none;
+            background: white; color: #333; min-width: 180px;
+        }
+        .container { width: 96%; margin: 20px auto; }
+        .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+        .card { padding: 20px; border-radius: 12px; color: white; cursor: pointer; transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .card h3 { margin: 0; font-size: 11px; text-transform: uppercase; opacity: 0.9; }
+        .card p { margin: 10px 0 5px; font-size: 24px; font-weight: bold; }
+        .card span { font-size: 10px; opacity: 0.8; }
+        .blue { background: #007bff; } .green { background: #28a745; }
+        .orange { background: #fd7e14; } .red { background: #dc3545; }
+
+        .charts-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+        .chart-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        .search-container { position: relative; }
+        #opdInput { cursor: pointer; font-weight: bold; }
+        .results { 
+            position: absolute; top: 55px; left: 0; right: 0; background: white; 
+            border-radius: 8px; box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            max-height: 250px; overflow-y: auto; display: none; z-index: 1000;
+        }
+        .results div { padding: 12px; color: #333; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .results div:hover { background: #e7f1ff; color: #0d6efd; font-weight: bold; }
+        @media (max-width: 1000px) { .cards { grid-template-columns: 1fr 1fr; } .charts-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title" onclick="location.href='index.html'">
+        <span>BKAD MENTAWAI</span>
+        <a href="index.html" class="btn-back">⬅ Dashboard</a>
+    </div>
+    
+    <div class="header-filters">
+        <div class="filter-group">
+            <label>Tahun Anggaran</label>
+            <select id="selTahun">
+                <option>2025</option><option>2026</option><option>2027</option>
+            </select>
+        </div>
+        <div class="filter-group search-container">
+            <label>Pilih Unit Kerja (OPD)</label>
+            <input type="text" id="opdInput" placeholder="-- Pilih OPD --" readonly>
+            <div id="opdResults" class="results"></div>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="cards">
+        <div class="card blue" onclick="location.href='pendapatan.html'">
+            <h3>PAGU PENDAPATAN</h3>
+            <p id="txtPagu">Rp 0</p>
+            <span>Klik detail pendapatan</span>
+        </div>
+        <div class="card green" onclick="location.href='belanja.html'">
+            <h3>REALISASI BELANJA</h3>
+            <p id="txtRealisasi">Rp 0</p>
+            <span>Klik detail belanja</span>
+        </div>
+        <div class="card orange" onclick="location.href='capaian.html'">
+            <h3>PERSENTASE CAPAIAN</h3>
+            <p id="txtPersen">0%</p>
+            <span>Klik evaluasi kinerja</span>
+        </div>
+        <div class="card red" onclick="location.href='index.html'">
+            <h3>SISA ANGGARAN</h3>
+            <p id="txtSisa">Rp 0</p>
+            <span>Kembali ke dashboard utama</span>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h4 id="barTitle" style="margin:0 0 15px; color:#555;">Komparasi Pendapatan vs Belanja</h4>
+            <div class="chart-container"><canvas id="canvasBar"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <h4 style="margin:0 0 15px; color:#555;">Rasio Penyerapan</h4>
+            <div class="chart-container"><canvas id="canvasPie"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script src="data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Logic JavaScript Anda tetap sama seperti sebelumnya
+let chartBar, chartPie;
+
+function initCharts() {
+    chartBar = new Chart(document.getElementById('canvasBar'), {
+        type: 'bar',
+        data: {
+            labels: ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],
+            datasets: [
+                { label: 'Pendapatan (M)', backgroundColor: '#0d6efd', data: [] },
+                { label: 'Belanja (M)', backgroundColor: '#198754', data: [] }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    chartPie = new Chart(document.getElementById('canvasPie'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Realisasi', 'Sisa'],
+            datasets: [{ backgroundColor: ['#28a745', '#dee2e6'], data: [0, 0] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function updateDashboard(idx) {
+    if (!pendapatanData[idx]) return;
+    const dP = pendapatanData[idx];
+    const dB = belanjaData[idx];
+    
+    document.getElementById("txtPagu").innerText = "Rp " + (dP.target / 1e9).toFixed(2) + " M";
+    document.getElementById("txtRealisasi").innerText = "Rp " + (dB.realisasi / 1e9).toFixed(2) + " M";
+    document.getElementById("txtPersen").innerText = ((dB.realisasi / dB.anggaran) * 100).toFixed(1) + "%";
+    document.getElementById("txtSisa").innerText = "Rp " + ((dB.anggaran - dB.realisasi) / 1e9).toFixed(2) + " M";
+    document.getElementById("opdInput").value = dP.nama;
+
+    chartBar.data.datasets[0].data = dP.bulanan.map(v => v / 1e9);
+    chartBar.data.datasets[1].data = dB.bulananBelanja.map(v => v / 1e9);
+    chartBar.update();
+
+    chartPie.data.datasets[0].data = [dB.realisasi, (dB.anggaran - dB.realisasi)];
+    chartPie.update();
+}
+
+const inp = document.getElementById("opdInput");
+const res = document.getElementById("opdResults");
+
+inp.onclick = (e) => {
+    res.innerHTML = "";
+    opdList.forEach((nama, i) => {
+        const div = document.createElement("div");
+        div.innerText = nama;
+        div.onclick = () => { updateDashboard(i); res.style.display = "none"; };
+        res.appendChild(div);
+    });
+    res.style.display = "block";
+    e.stopPropagation();
+};
+
+window.onload = () => {
+    initCharts();
+    updateDashboard(0);
+};
+document.addEventListener("click", () => res.style.display = "none");
+</script>
+</body>
+</html>
